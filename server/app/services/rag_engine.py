@@ -7,24 +7,33 @@ import json
 
 logger = logging.getLogger("app.services.rag")
 
-# Initialize SentenceTransformer globally
-embedder = None
-try:
-    from sentence_transformers import SentenceTransformer
-    logger.info("Loading sentence-transformers model 'all-MiniLM-L6-v2'...")
-    embedder = SentenceTransformer("all-MiniLM-L6-v2")
-except Exception as e:
-    logger.warning(f"Could not load sentence-transformers: {e}. Semantic search will use mock embeddings.")
+# Embedding model is loaded lazily (on first use, not at import time) via
+# fastembed — an ONNX Runtime based library, not torch/sentence-transformers.
+# This is the single biggest memory win for running on constrained hosts
+# (e.g. Render's 512MB free tier): torch + transformers + sentence-transformers
+# together routinely need 700MB-1GB just to import, while onnxruntime + a
+# small ONNX model fits comfortably in a fraction of that. BAAI/bge-small-en-v1.5
+# outputs 384-dim vectors, matching the existing `vector(384)` columns/RPCs —
+# no database schema change needed.
+_embedder = None
+
+def _get_embedder():
+    global _embedder
+    if _embedder is None:
+        from fastembed import TextEmbedding
+        logger.info("Loading fastembed model 'BAAI/bge-small-en-v1.5'...")
+        _embedder = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+    return _embedder
 
 def get_text_embedding(text: str) -> list[float]:
-    """Generates 384-dimensional vector embedding for the input text."""
-    if embedder:
-        try:
-            vector = embedder.encode(text).tolist()
-            return vector
-        except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
-    return [0.0] * 384
+    """Generates a 384-dimensional vector embedding for the input text."""
+    try:
+        embedder = _get_embedder()
+        vector = next(embedder.embed([text]))
+        return vector.tolist()
+    except Exception as e:
+        logger.error(f"Failed to generate embedding: {e}")
+        return [0.0] * 384
 
 def build_system_prompt(persona_name: str, persona_relation: str, survey_data: dict, memories_context: str) -> str:
     """
