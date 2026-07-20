@@ -5,7 +5,9 @@ pydantic-settings>=2.2.0
 supabase>=2.3.0
 groq>=0.4.0
 elevenlabs>=1.0.2
-faster-whisper>=1.0.0
+# Speech-to-text now runs via Groq's hosted Whisper API (see stt_engine.py) —
+# faster-whisper was a local model that, combined with the embedder, pushed
+# memory-constrained hosts over the edge mid-request.
 # fastembed uses ONNX Runtime, not torch/sentence-transformers — the same
 # 384-dim embedding quality at a fraction of the memory (no torch/transformers
 # import needed), which is what makes running comfortably in 512MB possible.
