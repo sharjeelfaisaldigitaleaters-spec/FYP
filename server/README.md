@@ -9,9 +9,8 @@ Welcome to the backend server for **Memory Keeper** (Echoes of Tomorrow). This i
 ### 1. Python 3.10+
 Make sure you have Python 3.10 or higher installed.
 
-### 2. Audio Processing (faster-whisper)
-`faster-whisper` depends on NVIDIA libraries (for GPU) or standard CPU acceleration tools.
-* **On Windows**: If running on CPU, you may need `cuBLAS` and `cuDNN` DLLs in your PATH if running GPU acceleration. For standard CPU usage, the library works out-of-the-box in `int8` mode.
+### 2. Audio Processing
+Speech-to-text runs via Groq's hosted Whisper API (`GROQ_API_KEY`) rather than a local model — no extra system dependencies needed.
 
 ---
 
@@ -85,7 +84,7 @@ create table public.personas (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- 5. Create Memories table with vector support (384 dimensions for all-MiniLM-L6-v2)
+-- 5. Create Memories table with vector support (384 dimensions, fastembed BAAI/bge-small-en-v1.5)
 create table public.memories (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users on delete cascade not null,
